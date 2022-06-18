@@ -1,0 +1,153 @@
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/mman.h>
+#include <math.h>
+#include <stdlib.h>
+
+int main(){
+  float resultado1, resultado2, soma=0, soma1=0, soma2=0;
+  int i=0, process, cont=1, parcelas, n1, n2, modo, clientes; // parcelas is number of elements for the array
+
+  printf("calculando PI com a formula de Leibniz!!\n");
+  printf("---------------------------------------------\n");
+  printf("Digite o numero de parcelas da serie a ser calculadas: ");
+  scanf("%d", &parcelas);
+  printf("Digite quantos clientes farão parte: ");
+  scanf("%d", &clientes);
+  printf("Digite o modo de processamento: ");
+  scanf("%d", &modo);
+
+  if (clientes % 2 != 0){
+    printf("\n A quantidade de clientes tem que ser par. Inicie o programa novamente");
+    exit(0);
+  }
+
+  if (clientes > parcelas){
+    printf("\n A quantidade de clientes tem que ser menor do que a quantidade de parcelas. Inicie o programa novamente");
+    exit(0);
+  }
+
+  if (modo == 1){ // MODO INTERATIVO
+    // MODO INTERATIVO
+    float *ptr = mmap(NULL,parcelas*sizeof(float),
+     PROT_READ | PROT_WRITE,
+     MAP_SHARED | MAP_ANONYMOUS,
+     0,0);    
+  
+    if(ptr == MAP_FAILED){
+     printf("Mapping Failed\n");
+     return 1;
+    }
+  
+    for(int i=0; i <= parcelas; i++){
+     ptr[i] = i;
+    }
+    // PROCESSOS PEGANDO A PARCELA PARA REALIZAR O CÁLCULO
+      for (int i = 0; i <= parcelas; i+=1 ){
+        process = fork();
+        if (process){ // PROCESSO PAI
+          n1 = ptr[i];
+          if (i % 2 == 0) {
+            resultado1 = 1.0/(2*n1 + 1);
+          }else {
+            resultado1 = -1.0/(2*n1 + 1);
+          }
+          printf("%f\n", resultado1);
+          ptr[i] = resultado1;
+          
+        }else{
+          sleep(1);
+          if (i+1 > parcelas){
+            break;
+          }
+          n2 = ptr[i+1];
+          if (i % 2 == 0) {
+            resultado2 = 1.0/(2*n2 + 1);
+          }else {
+            resultado2 = -1.0/(2*n2 + 1);
+          }
+          printf("%f\n", resultado2);
+          ptr[i+1] = resultado2;
+        }
+      }
+    printf("\n");
+  
+  
+   for (int i = 0; i <= parcelas; i++ ){
+     soma += ptr[i];
+    }
+  
+    printf("VALOR DE PI:\n\n");
+    printf("%.5f\n", soma * 4);
+    printf("\n");
+  
+    int err = munmap(ptr, parcelas*sizeof(float));
+  
+    if(err != 0){
+     printf("UnMapping Failed\n");
+     return 1;
+    }
+  }else{ // MODO EM LOTE
+    // MODO EM LOTE
+    float *ptr = mmap(NULL,parcelas*sizeof(float),
+     PROT_READ | PROT_WRITE,
+     MAP_SHARED | MAP_ANONYMOUS,
+     0,0);    
+  
+    if(ptr == MAP_FAILED){
+     printf("Mapping Failed\n");
+     return 1;
+    }
+  
+    for(int i=0; i <= parcelas; i++){
+     ptr[i] = i;
+    }
+    // PROCESSOS PEGANDO A PARCELA PARA REALIZAR O CÁLCULO
+      for (int i = 0; i <= parcelas; i+=1 ){
+        process = fork();
+        if (process){ // PROCESSO PAI
+          n1 = ptr[i];
+          if (i % 2 == 0) {
+            soma1 += 1.0/(2*n1 + 1);
+          }else {
+            soma1 += -1.0/(2*n1 + 1);
+          }
+          printf("%f\n", soma1);
+          
+        }else{
+          sleep(1);
+          if (i+1 > parcelas){
+            break;
+          }
+          n2 = ptr[i+1];
+          if (i % 2 == 0) {
+            soma2 += 1.0/(2*n2 + 1);
+          }else {
+            soma2 += -1.0/(2*n2 + 1);
+          }
+          printf("%f\n", soma2);
+        }
+      }
+      ptr[0] = soma1;
+      ptr[1] = soma2;
+    printf("\n");
+  
+  
+   soma = ptr[0] + ptr[1];
+  
+    printf("VALOR DE PI:\n\n");
+    printf("%.5f\n", soma * 4);
+    printf("\n");
+  
+    int err = munmap(ptr, parcelas*sizeof(float));
+  
+    if(err != 0){
+     printf("UnMapping Failed\n");
+     return 1;
+    }
+  }
+
+  
+  return 0;
+}
